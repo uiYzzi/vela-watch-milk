@@ -1,0 +1,115 @@
+<template>
+    <div class="page">
+        <div class="title">
+            <input class="back-btn" type="button" value="返回" onclick="routeBack" />
+            <text>{{ now_time }}</text>
+        </div>
+        <div class="history-list">
+            <div for="(index, session) in session_list" :key="index" class="history-item">
+                <text class="history-title">记录 {{ index + 1 }}:</text>
+                <text>时间: {{ formatTimestamp(session.timestamp) }}</text>
+                <text>持续时间: {{ session.formatted_time }}</text>
+                <text>次数: {{ session.times }}</text>
+                <text>频率: {{ session.frequency }} 次/分钟</text>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+import router from "@system.router"
+import storage from "@system.storage"
+
+export default {
+  private: {
+    now_time: null,
+    session_list: [] // 存储历史记录的列表
+  },
+
+  onInit() {
+    this.loadHistory() // 初始化时加载历史记录
+    this.updateTime();
+    setInterval(() => {
+      this.updateTime();
+    }, 60000);
+  },
+
+  updateTime() {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    this.now_time = `${hours}:${minutes}`;
+  },
+
+  loadHistory() {
+    // 从 storage 中获取保存的历史记录
+    storage.get({
+      key: "session_list",
+      success: (data) => {
+        if (data) {
+          // 解析并保存到 session_list
+          this.session_list = JSON.parse(data)
+        } else {
+          console.log("No previous history found")
+        }
+      },
+      fail: function (data, code) {
+        console.log(`Failed to get history data, code = ${code}`)
+      }
+    })
+  },
+
+  formatTimestamp(timestamp) {
+    const date = new Date(timestamp)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, "0")
+    const day = String(date.getDate()).padStart(2, "0")
+    const hours = String(date.getHours()).padStart(2, "0")
+    const minutes = String(date.getMinutes()).padStart(2, "0")
+    return `${year}-${month}-${day} ${hours}:${minutes}`
+  },
+
+  routeBack() {
+    router.back()
+  }
+}
+</script>
+
+<style>
+.page {
+    flex-direction: column;
+    justify-content: start;
+    background-color: #000000;
+    color: #ffffff;
+    padding: 20px;
+}
+
+.title {
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.back-btn {
+  background-color: #262626;
+  color: #ffffff;
+}
+
+.history-list {
+    flex-direction: column;
+    align-items: center;
+    margin-top: 20px;
+}
+
+.history-item {
+    margin-bottom: 10px;
+    padding: 10px;
+    flex-direction: column;
+    border-radius: 12px;
+    background-color: #262626;
+}
+
+.history-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+</style>

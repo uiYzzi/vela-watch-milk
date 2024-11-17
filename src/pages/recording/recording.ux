@@ -1,0 +1,245 @@
+<template>
+  <div class="page">
+    <div class="title">
+      <input class="back-btn" type="button" value="返回" onclick="routeBack" />
+      <text>{{ now_time }}</text>
+    </div>
+    <div class="data">
+      <text class="secondary_text">已持续时间</text>
+      <text class="formatted_time">{{ formatted_time }}</text>
+      <text class="secondary_text">频率 (每分钟)</text>
+      <text>{{ frequency }} 次/分钟</text>
+      <text class="secondary_text">总次数</text>
+      <text>{{ times }}</text>
+      <input class="stop-btn" type="button" value="结束" onclick="stop" />
+    </div>
+  </div>
+</template>
+
+<script>
+import router from "@system.router"
+import prompt from "@system.prompt"
+import storage from "@system.storage"
+import {setKeepScreenOn} from "@system.brightness"
+import {subscribeAccelerometer, unsubscribeAccelerometer} from "@system.sensor"
+
+export default {
+  private: {
+    now_time: null,
+    data_x: 0,
+    data_y: 0,
+    data_z: 0,
+    times: 0,
+    last_time: 0,
+    threshold: 0.4,
+    elapsed_time: 0, // 计时
+    interval_id: null,
+    formatted_time: "0分0秒", // 初始化格式化时间
+    frequency: 0 // 初始化频率
+  },
+
+  onInit() {
+    this.updateTime()
+    this.startTimer() // 启动计时器
+
+    setInterval(() => {
+      this.updateTime()
+    }, 60000)
+
+    subscribeAccelerometer({
+      interval: "game",
+      callback: (ret) => {
+        this.data_x = ret.x.toFixed(2)
+        this.data_y = ret.y.toFixed(2)
+        this.data_z = ret.z.toFixed(2)
+        this.processData(ret.z)
+      }
+    })
+
+    setKeepScreenOn({
+      keepScreenOn: true
+    })
+  },
+
+  updateTime() {
+    const now = new Date()
+    const hours = String(now.getHours()).padStart(2, "0")
+    const minutes = String(now.getMinutes()).padStart(2, "0")
+    this.now_time = `${hours}:${minutes}`
+  },
+
+  startTimer() {
+    // 每秒递增 elapsed_time，并更新格式化的时间和频率
+    this.interval_id = setInterval(() => {
+      this.elapsed_time += 1
+      this.updateFormattedTime() // 更新格式化时间
+      this.updateFrequency() // 更新频率
+    }, 1000)
+  },
+
+  stopTimer() {
+    if (this.interval_id) {
+      clearInterval(this.interval_id)
+      this.interval_id = null
+    }
+  },
+
+  updateFormattedTime() {
+    const minutes = Math.floor(this.elapsed_time / 60)
+    const seconds = this.elapsed_time % 60
+    this.formatted_time = `${minutes}分${seconds}秒`
+  },
+
+  updateFrequency() {
+    // 只有当 elapsed_time > 0 时才计算频率
+    if (this.elapsed_time > 0) {
+      this.frequency = ((this.times / this.elapsed_time) * 60).toFixed(2) // 计算每分钟的频率
+    }
+  },
+
+  stop() {
+    // 停止计时，保存数据
+    if (this.elapsed_time < 60) {
+      prompt.showToast({
+        message: "持续时间太短了，本次记录不保存，锻炼一下再来记录吧！",
+        duration: 1
+      })
+    } else {
+      this.saveSessionData()
+    }
+    setTimeout(() => {
+      this.routeBack();
+    }, 1000);
+  },
+
+  routeBack() {
+    this.stopTimer() // 停止计时器
+    router.back()
+    setKeepScreenOn({
+      keepScreenOn: false
+    })
+  },
+
+  processData(current_z) {
+    const now = new Date().getTime()
+    // 判断是否超过阈值，并且时间间隔足够
+    if (Math.abs(current_z - this.last_z) > this.threshold && now - this.last_time > 200) {
+      // 检查方向变化
+      if (current_z > this.last_z) {
+        this.times += 1 // 计数增加一次
+      }
+      this.last_time = now
+    }
+    this.last_z = current_z // 更新上一次的z轴值
+  },
+
+  saveSessionData() {
+    // 当前会话数据
+    const newSessionData = {
+      times: this.times,
+      elapsed_time: this.elapsed_time,
+      frequency: this.frequency,
+      formatted_time: this.formatted_time,
+      timestamp: new Date().toISOString() // 添加时间戳
+    }
+
+    // 获取之前的记录，追加本次数据
+    storage.get({
+      key: "session_list",
+      success: (data) => {
+        let sessionList = []
+        if (data) {
+          // 如果已有数据，解析成数组
+          sessionList = JSON.parse(data)
+        }
+
+        // 将本次会话数据添加到列表中
+        sessionList.push(newSessionData)
+
+        // 存储更新后的列表
+        storage.set({
+          key: "session_list",
+          value: JSON.stringify(sessionList), // 将数组转换成字符串
+          success: function () {
+            console.log("Data saved successfully")
+            prompt.showToast({
+              message: "数据保存成功",
+              duration: 1
+            })
+          },
+          fail: function (data, code) {
+            console.log(`Saving data failed, code = ${code}`)
+            prompt.showToast({
+              message: "数据保存失败，错误码：${code}",
+              duration: 1
+            })
+          }
+        })
+      },
+      fail: function (data, code) {
+        console.log(`Failed to get previous data, code = ${code}`)
+        // 如果获取失败，直接存储新的列表
+        storage.set({
+          key: "session_list",
+          value: JSON.stringify([newSessionData]), // 存储新会话数据
+          success: function () {
+            console.log("Data saved successfully")
+            prompt.showToast({
+              message: "数据保存成功",
+              duration: 1
+            })
+          },
+          fail: function (data, code) {
+            console.log(`Saving data failed, code = ${code}`)
+            prompt.showToast({
+              message: "数据保存失败，错误码：${code}",
+              duration: 1
+            })
+          }
+        })
+      }
+    })
+  }
+}
+</script>
+
+<style>
+.page {
+  flex-direction: column;
+  justify-content: start;
+  background-color: #000000;
+  color: #ffffff;
+  padding: 20px;
+}
+
+.title {
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.back-btn {
+  background-color: #262626;
+  color: #ffffff;
+}
+
+.stop-btn {
+  background-color: #cc1c1c;
+  width: 440px;
+  border-radius: 12px;
+  color: #ffffff;
+}
+
+.data {
+  flex-direction: column;
+  align-items: center;
+}
+
+.secondary_text {
+  color: #9b9b9b;
+  margin-top: 20px;
+}
+
+.formatted_time {
+  font-size: 100px;
+}
+</style>

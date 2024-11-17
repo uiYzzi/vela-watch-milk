@@ -1,0 +1,46 @@
+{
+  "package": "icu.yzzi.watch.milk",
+  "name": "指间欢愉",
+  "versionName": "1.0.0",
+  "versionCode": 1,
+  "minPlatformVersion": 1000,
+  "icon": "/common/logo.png",
+  "deviceTypeList": [
+    "watch"
+  ],
+  "features": [
+    {
+      "name": "system.router"
+    },
+    {
+      "name": "system.sensor"
+    },
+    {
+      "name": "system.brightness"
+    },
+    {
+      "name": "system.storage"
+    },
+    {
+      "name": "system.prompt"
+    }
+  ],
+  "config": {
+    "logLevel": "log",
+    "designWidth": 480
+  },
+  "router": {
+    "entry": "pages/index",
+    "pages": {
+      "pages/index": {
+        "component": "index"
+      },
+      "pages/recording": {
+        "component": "recording"
+      },
+      "pages/history": {
+        "component": "history"
+      }
+    }
+  }
+}

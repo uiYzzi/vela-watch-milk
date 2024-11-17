@@ -1,0 +1,86 @@
+<template>
+  <div class="page">
+    <div class="title">
+      <text>指间欢愉</text>
+      <text>{{ now_time }}</text>
+    </div>
+    <div class="btn-list">
+      <!-- <text>x: {{ data_x }}</text>
+      <text>y: {{ data_y }}</text>
+      <text>z: {{ data_z }}</text> -->
+      <input class="btn" type="button" value="开始记录" onclick="routeRecording" />
+      <input class="btn" type="button" value="历史记录" onclick="routeHistory"/>
+      <input class="btn" type="button" value="排行榜" />
+    </div>
+  </div>
+</template>
+
+<script>
+import router from "@system.router"
+import { subscribeAccelerometer, unsubscribeAccelerometer } from '@system.sensor'
+import configuration from "@system.configuration"
+
+export default {
+  private: {
+    now_time: null,
+    data_x: 0,
+    data_y: 0,
+    data_z: 0
+  },
+
+  onInit() {
+    this.updateTime();
+    setInterval(() => {
+      this.updateTime();
+    }, 60000);
+  },
+
+  updateTime() {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    this.now_time = `${hours}:${minutes}`;
+  },
+
+  routeRecording() {
+    router.push({
+      uri: "/pages/recording"
+    });
+  },
+
+  routeHistory() {
+    router.push({
+      uri: "/pages/history"
+    });
+  }
+}
+</script>
+
+<style>
+.page {
+  flex-direction: column;
+  justify-content: start;
+  background-color: #000000;
+  color: #ffffff;
+  padding: 20px;
+}
+
+.title {
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.btn-list {
+  flex-direction: column;
+}
+
+.btn {
+  width: 440px;
+  height: 100px;
+  margin-top: 20px;
+  border-radius: 12px;
+  background-color: #262626;
+  font-size: 40px;
+  color: #ffffff;
+}
+</style>
